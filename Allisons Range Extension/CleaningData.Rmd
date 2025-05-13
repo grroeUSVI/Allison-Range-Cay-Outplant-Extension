@@ -1,0 +1,153 @@
+---
+title: "Allison Range Cay"
+output: html_document
+date: "2025-04-14"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(readr)#import CSVs
+library(tidyverse)#to pipe
+library(lubridate)#tell month/date
+library(patchwork)#so you can stitch plots together 
+
+#import data
+Tags<- read_csv("CSVs/AH Outplant Tag ID.csv")
+unique(Tags$OutplantTagID)
+#315 unique tag IDs, 15 Tag IDs that are not in the Monitoring file
+
+#inport monitoring data
+Mon<- read_csv("CSVs/HOLEVOET RANGE CAY DATA - DATA.csv")
+unique(Mon$OutplantTagID)
+#some do not have a TagID going to remove those
+
+Mon<-Mon%>%
+  filter(OutplantTagID!="N/A"| OutplantTagID!= NA)
+
+unique(Mon$OutplantTagID)
+#once removing NAs and N/A we have 300 unique tag IDS
+
+#imported as tiffs changed to df
+Tags<-as.data.frame(Tags)
+Mon<-as.data.frame(Mon)
+
+#Going to look at how many trees from each treatment were out planted using the tags file
+Outplant<-Tags%>%
+  group_by(`Treatment TypeDouble`)%>%
+  summarise(n=n())
+
+#number outplanted per treatment type (this is how many we assume were alive at planting)
+#DG=double glass-78
+#DS=double soil-79
+#SG=single glass-40
+#SS=single soil-39
+#DCG=prop dowel glass-38
+#DCS=prop dowel soil-41
+
+#now we are going to Join Mon and Tag DF together so we can look at how many from each treatment were alive at different monitoring periods
+
+#reclassify the column so we can join them
+Mon$OutplantTagID<-as.numeric(Mon$OutplantTagID)
+Tags$OriginalTagID<-as.numeric(Tags$OutplantTagID)
+
+#join DFs together
+Mon1<-left_join(Mon,Tags, by="OutplantTagID")
+
+#we originally had 300 trees in 11.2023 when check MON when join then check we have 301 (we fixed this problem by editing the csvs (we had two different original ID #s for 2175), now we have 295 trees both before and after we join the two dfs)
+Moncheck<-Mon%>%filter(`Month/YR Monitored`=="11.2023")#300
+Moncheck1<-Mon1%>%filter(`Month/YR Monitored`=="11.2023")#301
+#after everything is fixed we have 295 trees in 11.2023
+
+
+#looking at how often plants were monitored, this groups by month and tag ID so you can see how much 
+Moncheck<-Mon1%>%
+  filter(`Month/YR Monitored`=="11.2023")%>%
+  group_by(`Month/YR Monitored`,OriginalTagID)%>%
+  summarise(n=n())
+
+#had a few trees that had two rows for monitoring on the same date, looked back at csv and fixed in CSV
+  #1844-dead twice in 11/23 deleted one
+  #2154-on datasheet twice,once living once dead, deleted dead one 
+  #2175-in Tags twice,only in monitoring once, two original tag numbers (453 problem child) and (151 is the correct one) not deleting from tag CSV yet because we dont know if we need that info for a different tree-deleted 453 from CSV still in online file
+Monch<-Mon1%>%
+  filter(`Month/YR Monitored`=="11.2023")%>%
+  filter(OutplantTagID=="2175")
+
+  #2191-in twice in 11.24, DY and D, deleting D row, marked D next month
+  #2891-in twice in 11.24, DY and D, deleting D row, marked D next month
+  #3089-in twice in 11.24, DY and D, deleting D row, marked D next month
+
+
+#checking 6 months
+Moncheck<-Mon1%>%
+  filter(`Month/YR Monitored`=="5.2024")%>%
+  group_by(`Month/YR Monitored`,OriginalTagID)%>%
+  summarise(n=n())
+
+#checking 3/25
+Moncheck<-Mon1%>%
+  filter(`Month/YR Monitored`=="3.2025")%>%
+  group_by(`Month/YR Monitored`,OriginalTagID)%>%
+  summarise(n=n())
+#all trees only monitored once!
+
+
+#I have the number of trees planted initially, now I want to see of those planted how many are still alive as of the last monitoring point March 2025
+MarchMon<-Mon1%>%
+  filter(`Month/YR Monitored`=="3.2025")
+
+unique(MarchMon$DeadAliveDying)
+#three options are, alive, NA, D looking at NA, all these are missing so I will filter MarchMon for only alive then count how many of each treatment are alive
+
+MarchAlive<-MarchMon%>%
+  filter(DeadAliveDying=="A")%>%
+  group_by(`Treatment TypeDouble`)%>%
+  summarise(n=n())
+
+#DCG 29
+#DCS 37
+#DG 54
+#DS 65
+#SG 30
+#SS 32
+  
+#now I have two objects, one with the number of trees alive per treatment when they were planted (Outplant), one with the number of trees alive in 3/2025 (MarchAlive), want to plot proportion survived to see if it appears there are differences between groups
+
+
+MarchAlive<-rename(MarchAlive, March=n)
+Outplant<-rename(Outplant, Outplant=n)
+
+Combine<-left_join(Outplant, MarchAlive, by="Treatment TypeDouble")
+
+#calculate Trees that Died and Proportion Survived for Plotting Purposes
+Plot<-Combine%>%
+  mutate(Dead=Outplant-March)%>%
+  select(`Treatment TypeDouble`,March,Dead)%>%
+   mutate(TotalPlanted=March+Dead)%>%
+  mutate(ProportionSurvived=March/TotalPlanted)
+
+
+#plot proportion survived as of 3/2024        
+ProportionPlot<-Plot%>%
+  ggplot(aes(x=`Treatment TypeDouble`, y=ProportionSurvived))+
+  geom_col()
+
+ProportionPlot
+
+#now need to make the contingency table so we can run the chi squared test
+Combine1<-Combine%>%
+  select(March, Dead)
+
+CSq<-chisq.test(Combine1)
+#Pearson's Chi-squared test
+
+#data:  Combine
+#X-squared = 8.6517, df = 5, p-value = 0.1238
+
+#there is no significant difference in survivorship between treatments
+
+```
+
+
+
