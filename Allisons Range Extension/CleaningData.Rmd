@@ -6,7 +6,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Test
+Test 
 
 ```{r setup, include=FALSE}
 library(readr)#import CSVs
@@ -15,12 +15,12 @@ library(lubridate)#tell month/date
 library(patchwork)#so you can stitch plots together 
 
 #import data
-Tags<- read_csv("CSVs/AH Outplant Tag ID.csv")
+Tags<- read_csv("Allisons Range Extension/CSVs/AH Outplant Tag ID.csv")
 unique(Tags$OutplantTagID)
 #315 unique tag IDs, 15 Tag IDs that are not in the Monitoring file
 
 #inport monitoring data
-Mon<- read_csv("CSVs/HOLEVOET RANGE CAY DATA - DATA.csv")
+Mon<- read_csv("Allisons Range Extension/CSVs/HOLEVOET RANGE CAY DATA - DATA.csv")
 unique(Mon$OutplantTagID)
 #some do not have a TagID going to remove those
 
